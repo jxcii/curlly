@@ -1,12 +1,9 @@
+#include "lib.h"
 #include <stdio.h>
 #include <curl/curl.h>
-#include <string>
 #include <queue>
-#include <nlohmann/json.hpp>
-#include "lib.h"
-#include <thread>
-#include <mutex>
 #include <future>
+#include <thread>
 #include <sstream>
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
@@ -15,19 +12,17 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* out
     return totalSize;
 }
 
-using json = nlohmann::json;
-std::queue<json>* threadsForDoing = new std::queue<json>();
-
-void Task(json data){
+std::queue<std::string>* threadsForDoing = new std::queue<std::string>();
+int key = 0;
+void Task(std::string data){
     //std::mutex myMutex;
     //std::lock_guard<std::mutex> lock(myMutex);
     CURL* curl = curl_easy_init();
-    std::future<bool> res = std::async(replyMessage, curl, data);
-    while(!res.get()){
-    }
+    replyMessage(curl, data);
     curl_easy_cleanup(curl);
+    
 }
-int key = 0;
+
 void AnswerManagement(){
     std::vector<std::thread*>* threads = new std::vector<std::thread*>();
     while(1){
@@ -70,12 +65,26 @@ int main(){
                 if(res != CURLE_OK){
                     printf("oshibka = %s", curl_easy_strerror(res));
                 }
-                json parsedData = json::parse(response);
-                if(parsedData["result"].size() > 0){ 
+                rapidjson::Document parsedData;
+                printf("%s\n", url.c_str());
+                printf("%s\n", response.c_str());
+                parsedData.Parse(response.c_str());
+                printf("%d-kol\n", parsedData["result"].Size());
+                int size = parsedData["result"].Size();
+                if(size > 0){ 
                     key = 0;
-                    if(parsedData["result"][0]["message"]["text"]!=NULL) {
-                        threadsForDoing->push(parsedData["result"][0]);
-                        i = stoi(parsedData["result"][0]["update_id"].dump()) + 1;
+                    printf("%d-dol\n", parsedData["result"][0]["message"]["text"].IsString());
+                    if(parsedData["result"][0]["message"]["text"].IsString()) {
+                        rapidjson::Document copy;
+                        copy.CopyFrom(parsedData["result"][0], copy.GetAllocator());
+                        rapidjson::StringBuffer buffer;
+                        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+                        copy.Accept(writer);
+                        std::string jsonString = buffer.GetString();
+                        printf("info-%s\n" , jsonString.c_str());
+                        threadsForDoing->push(jsonString);
+                        int number = parsedData["result"][0]["update_id"].GetInt();
+                        i = number + 1;
                     }
                 } else key = 1;
             } 

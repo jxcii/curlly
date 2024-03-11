@@ -9,14 +9,13 @@ find_package(CURL REQUIRED)
 
 # Включить заголовочные файлы Curl
 include_directories(${CURL_INCLUDE_DIRS})
-
 # Добавить исполняемый файл вашего проекта
 add_executable(App main.cpp)
 
-find_package(nlohmann_json 3.7.0 REQUIRED)
 add_subdirectory(library)
-# Связать ваш исполняемый файл с библиотекой Curl
-target_link_libraries(App ${CURL_LIBRARIES} nlohmann_json::nlohmann_json lib)
-
 include_directories(library)
-
+# Связать ваш исполняемый файл с библиотекой Curl
+target_link_libraries(App ${CURL_LIBRARIES} lib)
+target_include_directories(lib
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)

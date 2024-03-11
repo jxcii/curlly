@@ -1,13 +1,9 @@
 #include "lib.h"
 #include <string>
-#include <curl/curl.h>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <thread>
-#include <future>
-#include <chrono>
-
-using json = nlohmann::json;
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 static size_t write_data(char *ptr, size_t size, size_t nmemb, void *user){
     return size * nmemb;
 }
@@ -27,17 +23,18 @@ std::string DoThis(CURL* curl, std::string url, std::string response = ""){
     return response;
 }
 
-void editTextBetweenSeconds(std::string text, std::string message_id, std::string chat_id){
+void editTextBetweenSeconds(std::string text, int64_t message_idN, int64_t chat_idN){
     CURL* curl = curl_easy_init();
+    std::stringstream message_id, chat_id;
+    message_id << message_idN;
+    chat_id << chat_idN;
     if(curl){
         std::string url = "https://api.telegram.org/bot5310616909:AAHqrFdIoW21YPTAtnAxDRzSVJoILL4XjG4/editMessageText?", buf;
-        buf = "chat_id=" + chat_id + "&message_id=" + message_id + "&text=" + text + "&parse_mode=MarkdownV2";
+        buf = "chat_id=" + chat_id.str() + "&message_id=" + message_id.str() + "&text=" + text + "&parse_mode=MarkdownV2";
         DoThis(curl, (url+buf));
         curl_easy_cleanup(curl);
     }
 }
-using json = nlohmann::json;
-
 std::string urlencode(const std::string &s)
 {
     static const char lookup[]= "0123456789abcdef";
@@ -53,7 +50,7 @@ std::string urlencode(const std::string &s)
         {
             e << c;
         }
-        else if (c == '.' || c == '('|| c == ')' || c == '-') {
+        else if (c == '.' || c == '('|| c == ')' || c == '-'  || c == '<' || c == '>') {
             e << '\\';
             e << c;
         }
@@ -66,46 +63,54 @@ std::string urlencode(const std::string &s)
     }
     return e.str();
 }
-bool replyMessage(CURL* curl, json data){
+bool replyMessage(CURL* curl,  std::string data){
     if(curl){
-        std::string url = "https://api.telegram.org/bot5310616909:AAHqrFdIoW21YPTAtnAxDRzSVJoILL4XjG4/sendMessage?", buf, chat_id = data["message"]["chat"]["id"].dump();
-        printf("1\n");
-        printf("%s\n", data["message"]["text"].dump().substr(0, 8).c_str());
-        if(data["message"]["text"].dump()=="\"/start\""){
-            buf = "chat_id=" + chat_id + "&text=" + "Assalomu%20alaykum%20%20%20\U0001F508" + "&parse_mode=MarkdownV2";
-            json info = json::parse(DoThis(curl, (url + buf)));
+        rapidjson::Document parsedData;
+        parsedData.Parse(data.c_str());
+        std::string url = "https://api.telegram.org/bot5310616909:AAHqrFdIoW21YPTAtnAxDRzSVJoILL4XjG4/sendMessage?", buf;
+        int64_t chat_idN = parsedData["message"]["chat"]["id"].GetInt64();
+        std::stringstream chat_id;
+        chat_id << chat_idN;
+        std::string res = parsedData["message"]["text"].GetString();
+        if(res=="/start"){
+            printf("123\n");
+            buf = "chat_id=" + chat_id.str() + "&text=" + "Assalomu%20alaykum%20%20%20\U0001F508" + "&parse_mode=MarkdownV2";
+            rapidjson::Document info;
+            info.Parse(DoThis(curl, (url + buf)).c_str());
             for(int c = 0; c<8; c++){
-                if(c%3==0) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F509", info["result"]["message_id"].dump(), info["result"]["chat"]["id"].dump());
-                if(c%3==1) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F50A", info["result"]["message_id"].dump(), info["result"]["chat"]["id"].dump());
-                if(c%3==2) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F508", info["result"]["message_id"].dump(), info["result"]["chat"]["id"].dump());
+                if(c%3==0) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F509", info["result"]["message_id"].GetInt64(), info["result"]["chat"]["id"].GetInt64());
+                if(c%3==1) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F50A", info["result"]["message_id"].GetInt64(), info["result"]["chat"]["id"].GetInt64());
+                if(c%3==2) editTextBetweenSeconds("Assalomu%20alaykum%20%20%20\U0001F508", info["result"]["message_id"].GetInt64(), info["result"]["chat"]["id"].GetInt64());
             }
-            buf = "chat_id=" + chat_id + "&text=" + "Ma'lumot%20sifatida%20bilib%20olishingiz%20kerak:" + "&parse_mode=MarkdownV2";
+            buf = "chat_id=" + chat_id.str() + "&text=" + "Ma'lumot%20sifatida%20bilib%20olishingiz%20kerak:" + "&parse_mode=MarkdownV2";
             DoThis(curl, (url + buf));
-            buf = "chat_id=" + chat_id + "&text=" + "\U00000031\U0000FE0F\U000020E3%20Maqsadim%20ingliz%20tilini%20o%27rganishga%20yordam%20beruvchi%20[Oxford%20English%20Dictionary%20](https://www.oed.com/?tl=true)saytidan%20olinadigan%20so%27zlar%20bazasi%20yordamida%20universal%20quiz%20testlarni%20%7c%7calgoritm%20yordamida%7c%7c%20yasab%20%22challenge%22lar%20o%27tkazish%2C%20sizlarga%20ulashish%20va%20xohishingiz%20bo%27yicha%20taqdim%20etish" + "&parse_mode=MarkdownV2";
-            info = json::parse(DoThis(curl, (url + buf)));
+            buf = "chat_id=" + chat_id.str() + "&text=" + "\U00000031\U0000FE0F\U000020E3%20Maqsadim%20ingliz%20tilini%20o%27rganishga%20yordam%20beruvchi%20[Oxford%20English%20Dictionary%20](https://www.oed.com/?tl=true)saytidan%20olinadigan%20so%27zlar%20bazasi%20yordamida%20universal%20quiz%20testlarni%20%7c%7calgoritm%20yordamida%7c%7c%20yasab%20%22challenge%22lar%20o%27tkazish%2C%20sizlarga%20ulashish%20va%20xohishingiz%20bo%27yicha%20taqdim%20etish" + "&parse_mode=MarkdownV2";
+            info.Parse(DoThis(curl, (url + buf)).c_str());
         }
-        if(data["message"]["text"].dump().substr(0, 8) == "\"search:"){
+        if(std::string(parsedData["message"]["text"].GetString()).substr(0,8) == "\"search:"){
+            printf("%s\n", urlencode(std::string(parsedData["message"]["text"].GetString()).substr(9, parsedData["message"]["text"].GetStringLength()-9-1)).c_str());
             url = "https://oed-researcher-api.oxfordlanguages.com/oed/api/v0.2/senses/?lemma=";
-            url.append(urlencode(data["message"]["text"].dump().substr(9, data["message"]["text"].dump().length()-9-1)));
+            url.append(urlencode(std::string(parsedData["message"]["text"].GetString()).substr(9, parsedData["message"]["text"].GetStringLength()-9-1)));
             struct curl_slist* headers = NULL;
             headers = curl_slist_append(headers, "accept: application/json");
             headers = curl_slist_append(headers, "app_id: e5ff3d39");
             headers = curl_slist_append(headers, "app_key: cfd13f21324edbdc017ecf6d66ff2424");
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-            json info = json::parse(DoThis(curl, url));
+            rapidjson::Document info;
+            info.Parse(DoThis(curl, (url + buf)).c_str());
             curl_slist_free_all(headers);
             std::string url = "https://api.telegram.org/bot5310616909:AAHqrFdIoW21YPTAtnAxDRzSVJoILL4XjG4/sendMessage?";
-            buf = "chat_id=" + chat_id + "&text=";
-            printf("%s\n", info.dump());
-            if(info["data"].size() > 0){
+            buf = "chat_id=" + chat_id.str() + "&text=";
+            printf("%s\n", info.GetString());
+            if(info["data"].Size() > 0){
                 curl_easy_cleanup(curl);
                 curl = curl_easy_init();
-                for(int c=0; c<info["data"].size(); c++){
+                for(int c=0; c<info["data"].Size(); c++){
                     if(info["data"][c]["definition"]!=NULL) {
-                        buf += urlencode(info["data"][c]["definition"].dump().substr(1, info["data"][c]["definition"].dump().length()-2)) + std::string("%0A");
+                        buf += urlencode(std::string(info["data"][c]["definition"].GetString()).substr(1, info["data"][c]["definition"].GetStringLength()-2)) + std::string("%0A");
                         buf += "&parse_mode=MarkdownV2";
                         DoThis(curl, (url+buf));
-                        buf = "chat_id=" + chat_id + "&text=";
+                        buf = "chat_id=" + chat_id.str() + "&text=";
                     }
                 }
             }
